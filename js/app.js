@@ -24,10 +24,10 @@ function handleError(error) {
   
   function initializeSession() {
     var session = OT.initSession(apiKey, sessionId);
-  
+    var subscriber
     // Subscribe to a newly created stream
     session.on('streamCreated', function(event) {
-        session.subscribe(event.stream, 'subscriber', {
+        subscriber = session.subscribe(event.stream, 'subscriber', {
           insertMode: 'append',
           width: '100%',
           height: '100%',
@@ -35,6 +35,25 @@ function handleError(error) {
           subscribeToVideo: false
         }, handleError);
     });
+
+    if(subscriber) {
+        console.log('Here');
+        subscriber.setStyle('audioLevelDisplayMode', 'off');
+        var movingAvg = null;
+        subscriber.on('audioLevelUpdated', function(event) {
+            if (movingAvg === null || movingAvg <= event.audioLevel) {
+                movingAvg = event.audioLevel;
+            } else {
+                movingAvg = 0.7 * movingAvg + 0.3 * event.audioLevel;
+            }
+
+            // 1.5 scaling to map the -30 - 0 dBm range to [0,1]
+            var logLevel = (Math.log(movingAvg) / Math.LN10) / 1.5 + 1;
+            logLevel = Math.min(Math.max(logLevel, 0), 1);
+            console.log(logLevel);
+            // document.getElementById('subscriberMeter').value = logLevel;
+        });
+    }
 
     // Create a publisher
     var publisher = OT.initPublisher('publisher', {
